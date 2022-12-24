@@ -347,7 +347,7 @@ export class WsHandler {
             return;
         }
 
-        channelManager.join(ws, channel, message).then((response) => {
+        channelManager.join(ws, channel, message).then(async (response) => {
             if (!response.success) {
                 let { authError, type, errorMessage, errorCode } = response;
 
@@ -404,61 +404,195 @@ export class WsHandler {
                 return;
             }
 
-            // Otherwise, prepare a response for the presence channel.
-            this.server.adapter.getChannelMembers(ws.app.id, channel, false).then(members => {
-                let { user_id, user_info } = response.member;
+            let joinedChannel = channel
+            let joinedChannelIsAdmin = channel.indexOf('Website.Admin') !== -1
+            let joinedChannelIsWebsiteOrAdmin = channel.indexOf('Website.') !== -1
 
-                ws.presence.set(channel, response.member);
+            if (joinedChannelIsWebsiteOrAdmin) {
+                let adminChannelName, websiteChannelName, channelToGetMemebersFrom, channelToSubscribeTo, channelToPublishMembersInfoTo
+                let adminChannelMembers, websiteChannelMembers
+                let joinedChannelMembers, otherChannelMembers
+                let subscriptionSucceededData
 
-                // Make sure to update the socket after new data was pushed in.
-                this.server.adapter.addSocket(ws.app.id, ws);
+                // Check if its an admin channel
+                if (joinedChannelIsAdmin) {
+                    // Admin Channel
+                    adminChannelName = joinedChannel
+                    websiteChannelName = joinedChannel.replace('.Admin', '')
 
-                // If the member already exists in the channel, don't resend the member_added event.
-                if (!members.has(user_id as string)) {
-                    this.server.webhookSender.sendMemberAdded(ws.app, channel, user_id as string);
+                    channelToGetMemebersFrom = websiteChannelName
+                    channelToSubscribeTo = adminChannelName
+                    channelToPublishMembersInfoTo = adminChannelName
+                }
+                else {
+                    // Website Channel
+                    adminChannelName = joinedChannel.replace('Website', 'Website.Admin')
+                    websiteChannelName = joinedChannel
 
-                    this.server.adapter.send(ws.app.id, channel, JSON.stringify({
-                        event: 'pusher_internal:member_added',
+                    channelToGetMemebersFrom = websiteChannelName
+                    channelToSubscribeTo = websiteChannelName
+                    channelToPublishMembersInfoTo = adminChannelName
+                }
+
+                try {
+                    // Otherwise, prepare a response for the presence channel.
+                    adminChannelMembers = await this.server.adapter.getChannelMembers(ws.app.id, adminChannelName, false)
+                    websiteChannelMembers = await this.server.adapter.getChannelMembers(ws.app.id, websiteChannelName, false)
+                }
+                catch (err) {
+                    Log.error(err)
+
+                    ws.sendJson({
+                        event: 'pusher:error',
+                        channel,
+                        data: {
+                            type: 'ServerError',
+                            error: 'A server error has occured. CSTR: Cannot get channel members',
+                            code: 4302,
+                        },
+                    })
+                }
+
+                try {
+                    let { user_id, user_info } = response.member;
+                    ws.presence.set(joinedChannel, response.member);
+
+                    // Make sure to update the socket after new data was pushed in.
+                    this.server.adapter.addSocket(ws.app.id, ws);
+
+                    if (joinedChannelIsAdmin) {
+                        joinedChannelMembers = adminChannelMembers
+                        otherChannelMembers = websiteChannelMembers
+                    }
+                    else {
+                        joinedChannelMembers = websiteChannelMembers
+                        otherChannelMembers = adminChannelMembers
+                    }
+
+                    // If the member already exists in the channel, don't resend the member_added event.
+                    if (!joinedChannelMembers.has(user_id as string)) {
+                        this.server.webhookSender.sendMemberAdded(ws.app, channelToPublishMembersInfoTo, user_id as string);
+
+                        this.server.adapter.send(ws.app.id, channelToPublishMembersInfoTo, JSON.stringify({
+                            event: 'pusher_internal:member_added',
+                            channel: channelToPublishMembersInfoTo,
+                            data: JSON.stringify({
+                                user_id: user_id,
+                                user_info: user_info,
+                            }),
+                        }), ws.id);
+
+                        joinedChannelMembers.set(user_id as string, user_info);
+                    }
+
+
+                    if (joinedChannelIsAdmin) {
+                        subscriptionSucceededData = JSON.stringify({
+                            presence: {
+                                ids: Array.from(websiteChannelMembers.keys()),
+                                hash: Object.fromEntries(websiteChannelMembers),
+                                count: websiteChannelMembers.size,
+                            },
+                        })
+                    }
+                    else {
+                        subscriptionSucceededData = JSON.stringify({
+                            presence: {
+                                ids: [],
+                                hash: {},
+                                count: null,
+                            },
+                        })
+                    }
+
+                    let broadcastMessage = {
+                        event: 'pusher_internal:subscription_succeeded',
+                        channel: channelToPublishMembersInfoTo,
+                        data: subscriptionSucceededData,
+                    };
+
+                    ws.sendJson(broadcastMessage);
+
+                    if (Utils.isCachingChannel(channelToPublishMembersInfoTo)) {
+                        this.sendMissedCacheIfExists(ws, channelToPublishMembersInfoTo);
+                    }
+                }
+                catch (err) {
+                    Log.error(err)
+
+                    ws.sendJson({
+                        event: 'pusher:error',
+                        channel,
+                        data: {
+                            type: 'ServerError',
+                            error: 'A server error has occured. CSTR: Something went wrong',
+                            code: 430222,
+                        },
+                    })
+                }
+
+
+            } //joinedChannelIsWebsiteOrAdmin
+            else {
+                // ! joinedChannelIsWebsiteOrAdmin
+                this.server.adapter.getChannelMembers(ws.app.id, channel, false).then(members => {
+                    let { user_id, user_info } = response.member;
+
+                    ws.presence.set(channel, response.member);
+
+                    // Make sure to update the socket after new data was pushed in.
+                    this.server.adapter.addSocket(ws.app.id, ws);
+
+                    // If the member already exists in the channel, don't resend the member_added event.
+                    if (!members.has(user_id as string)) {
+                        this.server.webhookSender.sendMemberAdded(ws.app, channel, user_id as string);
+
+                        this.server.adapter.send(ws.app.id, channel, JSON.stringify({
+                            event: 'pusher_internal:member_added',
+                            channel,
+                            data: JSON.stringify({
+                                user_id: user_id,
+                                user_info: user_info,
+                            }),
+                        }), ws.id);
+
+                        members.set(user_id as string, user_info);
+                    }
+
+                    Log.info('Channel:')
+                    Log.info(channel)
+                    let broadcastMessage = {
+                        event: 'pusher_internal:subscription_succeeded',
                         channel,
                         data: JSON.stringify({
-                            user_id: user_id,
-                            user_info: user_info,
+                            presence: {
+                                ids: Array.from(members.keys()),
+                                hash: Object.fromEntries(members),
+                                count: members.size,
+                            },
                         }),
-                    }), ws.id);
+                    };
 
-                    members.set(user_id as string, user_info);
-                }
+                    ws.sendJson(broadcastMessage);
 
-                let broadcastMessage = {
-                    event: 'pusher_internal:subscription_succeeded',
-                    channel,
-                    data: JSON.stringify({
-                        presence: {
-                            ids: Array.from(members.keys()),
-                            hash: Object.fromEntries(members),
-                            count: members.size,
+                    if (Utils.isCachingChannel(channel)) {
+                        this.sendMissedCacheIfExists(ws, channel);
+                    }
+                }).catch(err => {
+                    Log.error(err);
+
+                    ws.sendJson({
+                        event: 'pusher:error',
+                        channel,
+                        data: {
+                            type: 'ServerError',
+                            error: 'A server error has occured.',
+                            code: 4302,
                         },
-                    }),
-                };
-
-                ws.sendJson(broadcastMessage);
-
-                if (Utils.isCachingChannel(channel)) {
-                    this.sendMissedCacheIfExists(ws, channel);
-                }
-            }).catch(err => {
-                Log.error(err);
-
-                ws.sendJson({
-                    event: 'pusher:error',
-                    channel,
-                    data: {
-                        type: 'ServerError',
-                        error: 'A server error has occured.',
-                        code: 4302,
-                    },
+                    });
                 });
-            });
+            }
+
         });
     }
 
@@ -480,19 +614,25 @@ export class WsHandler {
                     // Make sure to update the socket after new data was pushed in.
                     this.server.adapter.addSocket(ws.app.id, ws);
 
+                    let unsubscribedChannel = channel
+                    let unsubscribedChannelIsAdmin = channel.indexOf('Website.Admin') !== -1
+                    let unsubscribedIsWebsiteOrAdmin = channel.indexOf('Website.') !== -1
+                    let channelToBeNotifiedOfMemberRemovedEvent = (unsubscribedIsWebsiteOrAdmin && !unsubscribedChannelIsAdmin) ? channel.replace('Website', 'Website.Admin') : channel
+
                     this.server.adapter.getChannelMembers(ws.app.id, channel, false).then(members => {
                         if (!members.has(member.user_id as string)) {
                             this.server.webhookSender.sendMemberRemoved(ws.app, channel, member.user_id);
 
-                            this.server.adapter.send(ws.app.id, channel, JSON.stringify({
+                            this.server.adapter.send(ws.app.id, channelToBeNotifiedOfMemberRemovedEvent, JSON.stringify({
                                 event: 'pusher_internal:member_removed',
-                                channel,
+                                channel: channelToBeNotifiedOfMemberRemovedEvent,
                                 data: JSON.stringify({
                                     user_id: member.user_id,
                                 }),
                             }), ws.id);
                         }
                     });
+
                 }
 
                 ws.subscribedChannels.delete(channel);
@@ -709,7 +849,7 @@ export class WsHandler {
      * Get the channel manager for the given channel name,
      * respecting the Pusher protocol.
      */
-    getChannelManagerFor(channel: string): PublicChannelManager|PrivateChannelManager|EncryptedPrivateChannelManager|PresenceChannelManager {
+    getChannelManagerFor(channel: string): PublicChannelManager | PrivateChannelManager | EncryptedPrivateChannelManager | PresenceChannelManager {
         if (Utils.isPresenceChannel(channel)) {
             return this.presenceChannelManager;
         } else if (Utils.isEncryptedPrivateChannel(channel)) {
@@ -724,7 +864,7 @@ export class WsHandler {
     /**
      * Use the app manager to retrieve a valid app.
      */
-    protected checkForValidApp(ws: WebSocket): Promise<App|null> {
+    protected checkForValidApp(ws: WebSocket): Promise<App | null> {
         return this.server.appManager.findByKey(ws.appKey);
     }
 
