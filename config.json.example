@@ -1,0 +1,11 @@
+{
+    "debug": true,
+    "port" : "6002",
+    "appManager.array.apps": [
+        {
+            "id": "casterfm-cloud",
+            "key": "casterfm-cloud",
+            "secret": "casterfm-cloud"
+        }
+    ]
+}
