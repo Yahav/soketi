@@ -485,13 +485,19 @@ export class WsHandler {
                         joinedChannelMembers.set(user_id as string, user_info);
                     }
 
-
+                    console.log(websiteChannelMembers, typeof websiteChannelMembers)
                     if (joinedChannelIsAdmin) {
+                        let guests = [...websiteChannelMembers].filter(function (member) {
+                            return member[0].indexOf('GUEST') !== -1;
+                        }).length
+                        let users = [...websiteChannelMembers].filter(function (member) {
+                            return member[0].indexOf('GUEST') === -1;
+                        }).length
                         subscriptionSucceededData = JSON.stringify({
                             presence: {
-                                ids: Array.from(websiteChannelMembers.keys()),
-                                hash: Object.fromEntries(websiteChannelMembers),
-                                count: websiteChannelMembers.size,
+                                ids: [],
+                                hash: {},
+                                count: {users: users, guests: guests},
                             },
                         })
                     }
@@ -507,7 +513,7 @@ export class WsHandler {
 
                     let broadcastMessage = {
                         event: 'pusher_internal:subscription_succeeded',
-                        channel: channelToPublishMembersInfoTo,
+                        channel: channelToSubscribeTo,
                         data: subscriptionSucceededData,
                     };
 

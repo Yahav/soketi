@@ -249,7 +249,12 @@ export class HttpHandler {
 
             this.server.adapter.getChannelMembers(res.params.appId, res.params.channel).then(members => {
                 let broadcastMessage = {
-                    users: [...members].map(([user_id, user_info]) => {
+                    guests: [...members].filter(function (member) {
+                        return member[0].indexOf('GUEST') !== -1;
+                    }).length,
+                    users: [...members].filter(function (member) {
+                        return member[0].indexOf('GUEST') === -1;
+                    }).map(([user_id, user_info]) => {
                         return res.query.with_user_info === '1'
                             ? { id: user_id, user_info }
                             : { id: user_id };
