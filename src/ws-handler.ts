@@ -405,8 +405,8 @@ export class WsHandler {
             }
 
             let joinedChannel = channel
-            let joinedChannelIsAdmin = channel.indexOf('Website.Admin') !== -1
-            let joinedChannelIsWebsiteOrAdmin = channel.indexOf('Website.') !== -1
+            let joinedChannelIsAdmin = joinedChannel.indexOf('Admin') !== -1
+            let joinedChannelIsWebsiteOrAdmin = (joinedChannel.indexOf('Website') !== -1 || joinedChannel.indexOf('Admin') !== -1)
 
             if (joinedChannelIsWebsiteOrAdmin) {
                 let adminChannelName, websiteChannelName, channelToGetMemebersFrom, channelToSubscribeTo, channelToPublishMembersInfoTo
@@ -418,7 +418,7 @@ export class WsHandler {
                 if (joinedChannelIsAdmin) {
                     // Admin Channel
                     adminChannelName = joinedChannel
-                    websiteChannelName = joinedChannel.replace('.Admin', '')
+                    websiteChannelName = joinedChannel.replace('Admin', 'Website')
 
                     channelToGetMemebersFrom = websiteChannelName
                     channelToSubscribeTo = adminChannelName
@@ -426,13 +426,15 @@ export class WsHandler {
                 }
                 else {
                     // Website Channel
-                    adminChannelName = joinedChannel.replace('Website', 'Website.Admin')
+                    adminChannelName = joinedChannel.replace('Website', 'Admin')
                     websiteChannelName = joinedChannel
 
                     channelToGetMemebersFrom = websiteChannelName
                     channelToSubscribeTo = websiteChannelName
                     channelToPublishMembersInfoTo = adminChannelName
                 }
+
+                console.log(adminChannelName, websiteChannelName, channelToGetMemebersFrom, channelToSubscribeTo, channelToPublishMembersInfoTo)
 
                 try {
                     // Otherwise, prepare a response for the presence channel.
@@ -621,9 +623,9 @@ export class WsHandler {
                     this.server.adapter.addSocket(ws.app.id, ws);
 
                     let unsubscribedChannel = channel
-                    let unsubscribedChannelIsAdmin = channel.indexOf('Website.Admin') !== -1
-                    let unsubscribedIsWebsiteOrAdmin = channel.indexOf('Website.') !== -1
-                    let channelToBeNotifiedOfMemberRemovedEvent = (unsubscribedIsWebsiteOrAdmin && !unsubscribedChannelIsAdmin) ? channel.replace('Website', 'Website.Admin') : channel
+                    let unsubscribedChannelIsAdmin = unsubscribedChannel.indexOf('Admin') !== -1
+                    let unsubscribedIsWebsiteOrAdmin = (unsubscribedChannel.indexOf('Website') !== -1 || unsubscribedChannel.indexOf('Admin') !== -1)
+                    let channelToBeNotifiedOfMemberRemovedEvent = (unsubscribedIsWebsiteOrAdmin && !unsubscribedChannelIsAdmin) ? unsubscribedChannel.replace('Website', 'Admin') : unsubscribedChannel
 
                     this.server.adapter.getChannelMembers(ws.app.id, channel, false).then(members => {
                         if (!members.has(member.user_id as string)) {

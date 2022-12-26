@@ -248,17 +248,35 @@ export class HttpHandler {
             }
 
             this.server.adapter.getChannelMembers(res.params.appId, res.params.channel).then(members => {
-                let broadcastMessage = {
-                    guests: [...members].filter(function (member) {
-                        return member[0].indexOf('GUEST') !== -1;
-                    }).length,
-                    users: [...members].filter(function (member) {
-                        return member[0].indexOf('GUEST') === -1;
-                    }).map(([user_id, user_info]) => {
+
+                const users = [...members].filter(function (member) {
+                    return member[0].indexOf('GUEST') === -1;
+                })
+                const guests = [...members].filter(function (member) {
+                    return member[0].indexOf('GUEST') !== -1;
+                })
+
+                let recordsPerPage:number = res.query.records_per_page ?? 100
+                let requestedPage:number= res.query.page ?? 1
+                let totalRecords:number = users.length
+                let totalPages:number = Math.ceil(totalRecords / recordsPerPage)
+                requestedPage = (requestedPage > totalPages) ? totalPages : requestedPage
+                let pagedUsers = users.slice((requestedPage - 1) * recordsPerPage, requestedPage * recordsPerPage)
+                    .map(([user_id, user_info]) => {
                         return res.query.with_user_info === '1'
                             ? { id: user_id, user_info }
                             : { id: user_id };
-                    }),
+                    })
+
+                let broadcastMessage = {
+                    guests: guests.length,
+                    users: {
+                        recordsPerPage: recordsPerPage,
+                        requestedPage: requestedPage,
+                        totalRecords: totalRecords,
+                        totalPages: totalPages,
+                        records: pagedUsers
+                    },
                 };
 
                 this.server.metricsManager.markApiMessage(res.params.appId, {}, broadcastMessage);
