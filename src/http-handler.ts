@@ -248,7 +248,7 @@ export class HttpHandler {
             }
 
             this.server.adapter.getChannelMembers(res.params.appId, res.params.channel).then(members => {
-
+                console.log(res.params.channel, members)
                 const users = [...members].filter(function (member) {
                     return member[0].indexOf('GUEST') === -1;
                 })

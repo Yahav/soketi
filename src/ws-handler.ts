@@ -381,7 +381,7 @@ export class WsHandler {
             }
 
             // Make sure to update the socket after new data was pushed in.
-            this.server.adapter.addSocket(ws.app.id, ws);
+            await this.server.adapter.addSocket(ws.app.id, ws);
 
             // If the connection freshly joined, send the webhook:
             if (response.channelConnections === 1) {
@@ -460,7 +460,7 @@ export class WsHandler {
                     ws.presence.set(joinedChannel, response.member);
 
                     // Make sure to update the socket after new data was pushed in.
-                    this.server.adapter.addSocket(ws.app.id, ws);
+                    await this.server.adapter.addSocket(ws.app.id, ws);
 
                     if (joinedChannelIsAdmin) {
                         joinedChannelMembers = adminChannelMembers
