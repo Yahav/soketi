@@ -128,6 +128,10 @@ export class Metrics implements MetricsInterface {
      * Reset the metrics at the server level.
      */
     clear(): Promise<void> {
+        if (!this.server.options.metrics.enabled) {
+            return Promise.resolve();
+        }
+
         return this.driver.clear();
     }
 }
