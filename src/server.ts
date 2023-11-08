@@ -609,7 +609,6 @@ export class Server {
                 });
 
                 this.discover.on('master', (node: Node) => {
-                    this.nodes.set('self', this.discover.me);
                     this.nodes.set(node.id, node);
 
                     if (this.options.debug) {
