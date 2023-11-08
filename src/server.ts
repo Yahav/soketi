@@ -591,7 +591,6 @@ export class Server {
                 });
 
                 this.discover.on('added', (node: Node) => {
-                    this.nodes.set('self', this.discover.me);
                     this.nodes.set(node.id, node);
 
                     if (this.options.debug) {
@@ -601,7 +600,6 @@ export class Server {
                 });
 
                 this.discover.on('removed', (node: Node) => {
-                    this.nodes.set('self', this.discover.me);
                     this.nodes.delete(node.id);
 
                     if (this.options.debug) {
