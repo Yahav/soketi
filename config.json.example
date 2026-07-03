@@ -1,11 +1,20 @@
 {
-    "debug": true,
-    "port" : "6002",
-    "appManager.array.apps": [
-        {
-            "id": "casterfm-cloud",
-            "key": "casterfm-cloud",
-            "secret": "casterfm-cloud"
-        }
-    ]
+  "debug": true,
+  "port" : "6002",
+  "appManager.array.apps": [
+      {
+          "id": "casterfm-cloud",
+          "key": "casterfm-cloud",
+          "secret": "casterfm-cloud",
+          "webhooks": [
+              {
+                  "url": "http://serviceapi.centos.local/realtime/webhook",
+                  "event_types": ["member_added", "member_removed"],
+                  "filter": {
+                      "channel_name_starts_with": "presence-GuestChat."
+                  }
+              }
+          ]
+      }
+  ]
 }
