@@ -286,6 +286,42 @@ export class HttpHandler {
         });
     }
 
+    channelUser(res: HttpResponse) {
+        this.attachMiddleware(res, [
+            this.corkMiddleware,
+            this.corsMiddleware,
+            this.appMiddleware,
+            this.authMiddleware,
+            this.readRateLimitingMiddleware,
+        ]).then(res => {
+            if (!res.params.channel.startsWith('presence-')) {
+                return this.badResponse(res, 'The channel must be a presence channel.');
+            }
+
+            this.server.adapter.getChannelMembers(res.params.appId, res.params.channel).then(members => {
+                let userId = res.params.userId;
+                let present = members.has(userId);
+
+                let broadcastMessage: any = {
+                    id: userId,
+                    present,
+                };
+
+                if (present && res.query.with_user_info === '1') {
+                    broadcastMessage.user_info = members.get(userId);
+                }
+
+                this.server.metricsManager.markApiMessage(res.params.appId, {}, broadcastMessage);
+
+                this.sendJson(res, broadcastMessage);
+            }).catch(err => {
+                Log.error(err);
+
+                return this.serverErrorResponse(res, 'A server error has occurred.');
+            });
+        });
+    }
+
     events(res: HttpResponse) {
         this.attachMiddleware(res, [
             this.corkMiddleware,
