@@ -681,6 +681,15 @@ export class Server {
                     return this.httpHandler.channelUsers(res);
                 });
 
+                server.get(this.url('/apps/:appId/channels/:channelName/users/:userId'), (res, req) => {
+                    res.params = { appId: req.getParameter(0), channel: req.getParameter(1), userId: req.getParameter(2) };
+                    res.query = queryString.parse(req.getQuery());
+                    res.method = req.getMethod().toUpperCase();
+                    res.url = req.getUrl();
+
+                    return this.httpHandler.channelUser(res);
+                });
+
                 server.post(this.url('/apps/:appId/events'), (res, req) => {
                     res.params = { appId: req.getParameter(0) };
                     res.query = queryString.parse(req.getQuery());
